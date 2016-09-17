@@ -6,22 +6,30 @@
 import random, pygame, sys
 from pygame.locals import *
 
+
 import spotipy
 import sys
-import pprint
 
 import urllib, cStringIO
 import Image
+
+import io
+try:
+    # Python2
+    from urllib2 import urlopen
+except ImportError:
+    # Python3
+    from urllib.request import urlopen
 
 
 FPS = 30 # frames per second, the general speed of the program
 WINDOWWIDTH = 640 # size of window's width in pixels
 WINDOWHEIGHT = 480 # size of windows' height in pixels
 REVEALSPEED = 8 # speed boxes' sliding reveals and covers
-BOXSIZE = 40 # size of box height & width in pixels
+BOXSIZE = 64 # size of box height & width in pixels
 GAPSIZE = 10 # size of gap between boxes in pixels
-BOARDWIDTH = 10 # number of columns of icons
-BOARDHEIGHT = 7 # number of rows of icons
+BOARDWIDTH = 4 # number of columns of icons
+BOARDHEIGHT = 4 # number of rows of icons
 assert (BOARDWIDTH * BOARDHEIGHT) % 2 == 0, 'Board needs to have an even number of boxes for pairs of matches.'
 XMARGIN = int((WINDOWWIDTH - (BOARDWIDTH * (BOXSIZE + GAPSIZE))) / 2)
 YMARGIN = int((WINDOWHEIGHT - (BOARDHEIGHT * (BOXSIZE + GAPSIZE))) / 2)
@@ -43,18 +51,25 @@ LIGHTBGCOLOR = GRAY
 BOXCOLOR = WHITE
 HIGHLIGHTCOLOR = BLUE
 
-DONUT = 'donut'
-SQUARE = 'square'
-DIAMOND = 'diamond'
-LINES = 'lines'
-OVAL = 'oval'
+IMG0 = 'IMG0'
+IMG1 = 'IMG1'
+IMG2 = 'IMG2'
+IMG3 = 'IMG3'
+IMG4 = 'IMG4'
+IMG5 = 'IMG5'
+IMG6 = 'IMG6'
+IMG7 = 'IMG7'
+IMG8 = 'IMG8'
+IMG9 = 'IMG9'
 
-ALLCOLORS = (RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, CYAN)
-ALLSHAPES = (DONUT, SQUARE, DIAMOND, LINES, OVAL)
+ALLCOLORS = [RED]
+ALLSHAPES = (IMG0, IMG1, IMG2, IMG3, IMG4, IMG5, IMG6, IMG7, IMG8, IMG9)
 assert len(ALLCOLORS) * len(ALLSHAPES) * 2 >= BOARDWIDTH * BOARDHEIGHT, "Board is too big for the number of shapes/colors defined."
 
 def main():
-    global FPSCLOCK, DISPLAYSURF
+    global FPSCLOCK, DISPLAYSURF, images
+    images = []
+    loadImages()
     pygame.init()
     FPSCLOCK = pygame.time.Clock()
     DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
@@ -70,8 +85,6 @@ def main():
 
     DISPLAYSURF.fill(BGCOLOR)
     startGameAnimation(mainBoard)
-
-    #loadImages()
 
     while True: # main game loop
         mouseClicked = False
@@ -194,19 +207,36 @@ def drawIcon(shape, color, boxx, boxy):
 
     left, top = leftTopCoordsOfBox(boxx, boxy) # get pixel coords from board coords
     # Draw the shapes
-    if shape == DONUT:
-        pygame.draw.circle(DISPLAYSURF, color, (left + half, top + half), half - 5)
-        pygame.draw.circle(DISPLAYSURF, BGCOLOR, (left + half, top + half), quarter - 5)
-    elif shape == SQUARE:
-        pygame.draw.rect(DISPLAYSURF, color, (left + quarter, top + quarter, BOXSIZE - half, BOXSIZE - half))
-    elif shape == DIAMOND:
-        pygame.draw.polygon(DISPLAYSURF, color, ((left + half, top), (left + BOXSIZE - 1, top + half), (left + half, top + BOXSIZE - 1), (left, top + half)))
-    elif shape == LINES:
-        for i in range(0, BOXSIZE, 4):
-            pygame.draw.line(DISPLAYSURF, color, (left, top + i), (left + i, top))
-            pygame.draw.line(DISPLAYSURF, color, (left + i, top + BOXSIZE - 1), (left + BOXSIZE - 1, top + i))
-    elif shape == OVAL:
-        pygame.draw.ellipse(DISPLAYSURF, color, (left, top + quarter, BOXSIZE, half))
+    if shape == IMG0:
+        if len(images) > 0:
+            DISPLAYSURF.blit(images[0], (left, top))
+    elif shape == IMG1:
+        if len(images) > 1:
+            DISPLAYSURF.blit(images[1], (left, top))
+    elif shape == IMG2:
+        if len(images) > 2:
+            DISPLAYSURF.blit(images[2], (left, top))
+    elif shape == IMG3:
+        if len(images) > 3:
+            DISPLAYSURF.blit(images[3], (left, top))
+    elif shape == IMG4:
+        if len(images) > 4:
+            DISPLAYSURF.blit(images[4], (left, top))
+    elif shape == IMG5:
+        if len(images) > 5:
+            DISPLAYSURF.blit(images[5], (left, top))
+    elif shape == IMG6:
+        if len(images) > 6:
+            DISPLAYSURF.blit(images[6], (left, top))
+    elif shape == IMG7:
+        if len(images) > 7:
+            DISPLAYSURF.blit(images[7], (left, top))
+    elif shape == IMG8:
+        if len(images) > 8:
+            DISPLAYSURF.blit(images[8], (left, top))
+    elif shape == IMG9:
+        if len(images) > 9:
+            DISPLAYSURF.blit(images[9], (left, top))
 
 
 def getShapeAndColor(board, boxx, boxy):
@@ -299,26 +329,40 @@ def hasWon(revealedBoxes):
 
 def loadImages():
     sp = spotipy.Spotify()
-    global images
-    images = []
 
-    if len(sys.argv) > 1:
-        name = str(sys.argv[1:])
-        results = sp.search(q='artist:' + name, type='artist')
-        urn = 'spotify:artist:' + results["artists"]["items"][0]["id"]
-    else:
-        urn = 'spotify:artist:3jOstUTkEu2JkjvRdBA5Gu'
+    urls1 = getImages(sp, 'red hot')
+    urls2 = getImages(sp, 'acdc')
+    urls3 = getImages(sp, 'u2')
 
-    response = sp.artist_top_tracks(urn)
-    i=0
+    urls = urls1 + urls2 + urls3
+
+    for url in urls:
+        image_str = urlopen(url).read()
+        # create a file object (stream)
+        image_file = io.BytesIO(image_str)
+        # load the image from a file or stream
+        image = pygame.image.load(image_file)
+        images.append(image)
+        print str(len(images)) + ":" + url
+
+    return None
+
+
+def getImages(sp, name):
+    results = sp.search(q='artist:' + name, type='artist') # error 0
+    urn = 'spotify:artist:' + results["artists"]["items"][0]["id"]
+
+    response = sp.artist_top_tracks(urn) # error 1
+
+    urls = []
     for track in response['tracks']:
-        i = i+1
-        medium_img_link = results["artists"]["items"][i]["images"][1]["url"]
-        print(track['name'] + ' (image link: ' + str(medium_img_link) + ')')
-        file = cStringIO.StringIO(urllib.urlopen(medium_img_link).read())
+        medium_img_link = track["album"]["images"][2]["url"]
+        urls.append(medium_img_link)
+        file = cStringIO.StringIO(urllib.urlopen(medium_img_link).read()) # error 2
         img = Image.open(file)
-        img.show()
+        print str(len(urls)) + ":" + urls[len(urls)-1]
 
+    return list(set(urls))
 
 
 if __name__ == '__main__':
